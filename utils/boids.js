@@ -175,10 +175,9 @@ function getUpdatedBoids({
       const limitedVelocity = getLimitedVector(updatedVelocity, maxSpeed)
       const [directionX, directionY] = limitedVelocity
       const [nextX, nextY] = add(currentPosition, limitedVelocity)
-      const directionRadians = Math.atan2(directionX, directionY)
+      const directionRadians = Math.atan2(directionY, directionX)
       const directionDegrees = radiansToDegrees(directionRadians)
-      const targetRotation = directionDegrees
-      console.log(targetRotation)
+      const targetRotation = directionDegrees + 90
 
       const [wrappedX, wrappedY] = getCoordinatesWithWrapping({
         x: nextX,

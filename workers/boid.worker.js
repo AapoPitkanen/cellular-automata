@@ -1,11 +1,16 @@
 import { getUpdatedBoids } from '../utils/boids'
 
 self.addEventListener('message', ({ data }) => {
-  const { maxSpeed, maxForce, boidsChunk, allBoids, endX, endY, margin } = data
-  console.log(
-    'worker received boids',
-    boidsChunk.map(({ name }) => name)
-  )
+  const {
+    maxSpeed,
+    maxForce,
+    boidsChunk,
+    allBoids,
+    endX,
+    endY,
+    margin,
+    index
+  } = data
   const updatedBoids = getUpdatedBoids({
     maxSpeed,
     maxForce,
@@ -15,6 +20,5 @@ self.addEventListener('message', ({ data }) => {
     endY,
     margin
   })
-
-  self.postMessage({ updatedBoids })
+  self.postMessage({ updatedBoids, index })
 })

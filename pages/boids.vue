@@ -1,5 +1,11 @@
 <template lang="pug">
   v-row(no-gutters)
+    v-col(cols=12 ref="konvaControls").konva-controls
+      v-btn(@click="handleStartBoidsClick" color="primary")
+        v-icon mdi-play
+    v-col(cols=12 ref="konvaControls").konva-controls
+      v-btn(@click="handleStopBoidsClick" color="primary")
+        v-icon mdi-stop
     v-col(cols=12 ref="konvaContainer").konva-container
       v-stage(:config="configKonva" ref="stage" @mousemove="handleStageMouseMove")
         v-layer
@@ -12,14 +18,14 @@ import Konva from 'konva'
 import { add, divide, subtract, norm, chain, multiply } from 'mathjs'
 import BoidWorker from '../workers/boid.worker'
 import { getUpdatedBoids } from '../utils/boids'
-// function clamp(val, min, max) {
-//   return Math.max(min, Math.min(max, val))
-// }
 
-const boidsCount = 20
-const workerCount = 1
+const boidsCount = 30
+const workerCount = window.navigator.hardwareConcurrency - 1
 
 const workers = Array.from({ length: workerCount }).map(() => new BoidWorker())
+let konvaAnimation = null
+
+let frame = {}
 
 export default {
   data() {
@@ -48,7 +54,7 @@ export default {
           x: 0,
           y: 0,
           sides: 3,
-          radius: 10,
+          radius: 8,
           fill: '#00d29b'
         }))
         .reduce((boids, boid, idx) => {
@@ -65,16 +71,17 @@ export default {
     for (const worker of workers) {
       worker.onmessage = ({ data }) => {
         const { updatedBoids } = data
-        this.boids = {
-          ...this.boids,
+        frame = {
+          ...frame,
           ...updatedBoids
         }
       }
     }
     this.$nextTick(() => {
       const availableWidth = this.$refs.konvaContainer.clientWidth
+      const controlsHeight = this.$refs.konvaControls.clientHeight
       const windowHeight = window.innerHeight
-      const canvasHeight = windowHeight
+      const canvasHeight = windowHeight - controlsHeight - 96
       this.configKonva.width = availableWidth
       this.configKonva.height = canvasHeight
       this.mouse.x = Math.floor(availableWidth / 2)
@@ -95,9 +102,18 @@ export default {
         node.position({ x, y })
       }
 
-      const animation = new Konva.Animation(({ time }) => {
+      const animation = new Konva.Animation(({ timeDiff, frameRate }) => {
         this.updateBoids()
-        for (const boid of Object.values(this.boids)) {
+        const updatedBoidsCount = Object.keys(frame).length
+
+        if (updatedBoidsCount < boidsCount) {
+          console.log('waiting for worker messages')
+          return false
+        }
+
+        console.log('frame ready')
+
+        for (const boid of Object.values(frame)) {
           const { x, y, rotation } = boid
           const { name } = boid
           const [boidRef] = this.$refs[name]
@@ -105,12 +121,14 @@ export default {
           node.rotation(rotation)
           node.position({ x, y })
         }
+
+        this.boids = frame
+        frame = {}
       }, boidNode.getLayer())
-      animation.start()
+      konvaAnimation = animation
     })
 
     window.addEventListener('resize', this.handleWindowResize)
-    // this.boidInterval = setInterval(() => this.updateBoids(), 1000 / 120)
   },
   beforeDestroy() {
     clearInterval(this.boidInterval)
@@ -118,6 +136,12 @@ export default {
     window.removeEventListener('resize', this.handleWindowResize)
   },
   methods: {
+    handleStartBoidsClick() {
+      konvaAnimation.start()
+    },
+    handleStopBoidsClick() {
+      konvaAnimation.stop()
+    },
     handleWindowResize: debounce(function () {
       const konvaContainer = this.$refs.konvaContainer
       if (konvaContainer) {
@@ -134,44 +158,40 @@ export default {
       this.mouse.y = y
     },
     updateBoids() {
-      const payload = {
+      console.log('updating boids')
+      const boids = Object.values(this.boids)
+      const chunkLength = Math.ceil(boids.length / (workers.length + 1))
+      const firstChunkPayload = {
         maxSpeed: this.maxSpeed,
         maxForce: this.maxForce,
-        boidsChunk: Object.values(this.boids),
-        allBoids: Object.values(this.boids),
+        boidsChunk: boids.slice(0, chunkLength),
+        allBoids: boids,
         endX: this.configKonva.width,
         endY: this.configKonva.height,
         margin: this.margin
       }
-      const updatedBoids = getUpdatedBoids(payload)
-      this.boids = {
-        ...this.boids,
-        ...updatedBoids
+      const firstUpdatedBoids = getUpdatedBoids(firstChunkPayload)
+      frame = {
+        ...frame,
+        ...firstUpdatedBoids
       }
-      // const boids = Object.values(this.boids)
-      // const chunkLength = Math.floor(boids.length / workers.length)
-      // for (let i = 0; i < workers.length; ++i) {
-      //   const boidsChunk = boids.slice(
-      //     i * chunkLength,
-      //     i * chunkLength + chunkLength
-      //   )
-      //   const payload = {
-      //     maxSpeed: this.maxSpeed,
-      //     maxForce: this.maxForce,
-      //     boidsChunk,
-      //     allBoids: boids,
-      //     endX: this.configKonva.width,
-      //     endY: this.configKonva.height,
-      //     margin: this.margin
-      //   }
-      //   console.log(
-      //     'sending to worker',
-      //     i,
-      //     'boids',
-      //     boidsChunk.map(({ name }) => name)
-      //   )
-      //   workers[i].postMessage(payload)
-      // }
+      for (let i = 0; i < workers.length; ++i) {
+        const boidsChunk = boids.slice(
+          (i + 1) * chunkLength,
+          (i + 1) * chunkLength + chunkLength
+        )
+        const payload = {
+          maxSpeed: this.maxSpeed,
+          maxForce: this.maxForce,
+          boidsChunk,
+          allBoids: boids,
+          endX: this.configKonva.width,
+          endY: this.configKonva.height,
+          margin: this.margin,
+          index: i
+        }
+        workers[i].postMessage(payload)
+      }
     },
     seek(target, position, velocity) {
       const desired = subtract(target, position)

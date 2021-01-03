@@ -21,7 +21,6 @@
     v-main.grey.darken-4
       v-container(fluid).px-4
         nuxt
-    v-footer
 </template>
 
 <script>
