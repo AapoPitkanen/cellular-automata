@@ -82,6 +82,10 @@ export default {
         enforce: 'pre',
         use: ['source-map-loader']
       })
+      config.module.rules.push({
+        test: /\.worker\.js$/,
+        use: { loader: 'worker-loader' }
+      })
     }
   }
 }

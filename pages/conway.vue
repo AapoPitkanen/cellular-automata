@@ -42,8 +42,8 @@ export default {
       columns: 24,
       seed: {},
       history: [],
-      rectWidth: 32,
-      rectHeight: 32,
+      rectWidth: 16,
+      rectHeight: 16,
       margin: 640,
       configKonva: {
         x: 0,
@@ -110,7 +110,7 @@ export default {
             x,
             this.configKonva.height + this.margin + Math.abs(this.configKonva.y)
           ],
-          stroke: '#ebebeb',
+          stroke: '#999',
           strokeWidth: 1
         })
       }
@@ -122,7 +122,7 @@ export default {
             this.configKonva.width + this.margin + Math.abs(this.configKonva.x),
             y
           ],
-          stroke: '#ebebeb',
+          stroke: '#999',
           strokeWidth: 1
         })
       }
@@ -159,7 +159,7 @@ export default {
         this.updateCells()
         this.day += 1
         this.selectedDay += 1
-      }, 100)
+      }, 1000 / 15)
     },
     handleStageClick({ currentTarget }) {
       const { x, y } = currentTarget.getPointerPosition()

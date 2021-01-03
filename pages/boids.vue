@@ -9,15 +9,23 @@
 <script>
 import { debounce } from 'lodash'
 import Konva from 'konva'
-import { add, divide, subtract, norm, chain } from 'mathjs'
-
+import { add, divide, subtract, norm, chain, multiply } from 'mathjs'
+import BoidWorker from '../workers/boid.worker'
+import { getUpdatedBoids } from '../utils/boids'
 // function clamp(val, min, max) {
 //   return Math.max(min, Math.min(max, val))
 // }
 
+const boidsCount = 20
+const workerCount = 1
+
+const workers = Array.from({ length: workerCount }).map(() => new BoidWorker())
+
 export default {
   data() {
     return {
+      maxSpeed: 2.25,
+      maxForce: 0.03,
       mouse: {
         x: 0,
         y: 0
@@ -28,15 +36,15 @@ export default {
         width: 0,
         height: 0
       },
+      margin: 10,
       boidInterval: null,
-      boids: Array.from({ length: 2 })
+      boids: Array.from({ length: boidsCount })
         .map((_, idx) => ({
-          acceleration: 0,
+          acceleration: [0, 0],
           velocity: [0, 0],
           rotation: 0,
+          targetRotation: 0,
           scaleY: 1.33,
-          maxSpeed: 2,
-          maxForce: 0.03,
           x: 0,
           y: 0,
           sides: 3,
@@ -54,39 +62,55 @@ export default {
     }
   },
   mounted() {
+    for (const worker of workers) {
+      worker.onmessage = ({ data }) => {
+        const { updatedBoids } = data
+        this.boids = {
+          ...this.boids,
+          ...updatedBoids
+        }
+      }
+    }
     this.$nextTick(() => {
       const availableWidth = this.$refs.konvaContainer.clientWidth
       const windowHeight = window.innerHeight
-      const canvasHeight = Math.floor(windowHeight * (2 / 3))
+      const canvasHeight = windowHeight
       this.configKonva.width = availableWidth
       this.configKonva.height = canvasHeight
       this.mouse.x = Math.floor(availableWidth / 2)
       this.mouse.y = Math.floor(canvasHeight / 2)
+      const [boidRef] = this.$refs['boid-0']
+      const boidNode = boidRef.getNode()
 
       for (const boid of Object.values(this.boids)) {
         const { name } = boid
         const [boidRef] = this.$refs[name]
         const node = boidRef.getNode()
         const [x, y] = [
-          Math.floor(Math.random() * availableWidth),
-          Math.floor(Math.random() * canvasHeight)
+          Math.floor(Math.random() * availableWidth + 200),
+          Math.floor(Math.random() * canvasHeight + 100)
         ]
         this.boids[name].x = x
         this.boids[name].y = y
         node.position({ x, y })
-        const animation = new Konva.Animation(({ timeDiff }) => {
-          const { x, y, rotation } = boid
-
-          node.rotation(rotation)
-          node.position({ x, y })
-        }, node.getLayer())
-        animation.start()
       }
 
-      this.boidInterval = setInterval(() => this.updateBoids(), 1000 / 120)
+      const animation = new Konva.Animation(({ time }) => {
+        this.updateBoids()
+        for (const boid of Object.values(this.boids)) {
+          const { x, y, rotation } = boid
+          const { name } = boid
+          const [boidRef] = this.$refs[name]
+          const node = boidRef.getNode()
+          node.rotation(rotation)
+          node.position({ x, y })
+        }
+      }, boidNode.getLayer())
+      animation.start()
     })
 
     window.addEventListener('resize', this.handleWindowResize)
+    // this.boidInterval = setInterval(() => this.updateBoids(), 1000 / 120)
   },
   beforeDestroy() {
     clearInterval(this.boidInterval)
@@ -110,102 +134,143 @@ export default {
       this.mouse.y = y
     },
     updateBoids() {
-      for (const [name, boid] of Object.entries(this.boids)) {
-        const { x, y, velocity } = boid
-        const currentPosition = [x, y]
-        const alignmentVector = this.getAlignmentVector(boid)
-        const cohesionVector = this.getCohesionVector(boid)
-        const separationVector = this.getSeparationVector(boid)
-        const newVelocity = chain(velocity)
-          .add(alignmentVector)
-          .add(cohesionVector)
-          .add(separationVector)
-          .done()
-        const limited = this.getLimitedVelocityVector(newVelocity)
-        let [nextX, nextY] = add(currentPosition, limited)
-        const radians = Math.atan2(limited[1], limited[0])
-
-        if (nextX < 0) {
-          nextX += 3
-        }
-
-        if (nextX > this.configKonva.width) {
-          nextX -= 3
-        }
-
-        if (nextY < 0) {
-          nextY += 3
-        }
-
-        if (nextY > this.configKonva.height) {
-          nextY -= 3
-        }
-
-        this.boids[name].velocity = limited
-        this.boids[name].x = nextX
-        this.boids[name].y = nextY
-        this.boids[name].rotation = this.radToDegree(radians) + 90
+      const payload = {
+        maxSpeed: this.maxSpeed,
+        maxForce: this.maxForce,
+        boidsChunk: Object.values(this.boids),
+        allBoids: Object.values(this.boids),
+        endX: this.configKonva.width,
+        endY: this.configKonva.height,
+        margin: this.margin
       }
+      const updatedBoids = getUpdatedBoids(payload)
+      this.boids = {
+        ...this.boids,
+        ...updatedBoids
+      }
+      // const boids = Object.values(this.boids)
+      // const chunkLength = Math.floor(boids.length / workers.length)
+      // for (let i = 0; i < workers.length; ++i) {
+      //   const boidsChunk = boids.slice(
+      //     i * chunkLength,
+      //     i * chunkLength + chunkLength
+      //   )
+      //   const payload = {
+      //     maxSpeed: this.maxSpeed,
+      //     maxForce: this.maxForce,
+      //     boidsChunk,
+      //     allBoids: boids,
+      //     endX: this.configKonva.width,
+      //     endY: this.configKonva.height,
+      //     margin: this.margin
+      //   }
+      //   console.log(
+      //     'sending to worker',
+      //     i,
+      //     'boids',
+      //     boidsChunk.map(({ name }) => name)
+      //   )
+      //   workers[i].postMessage(payload)
+      // }
+    },
+    seek(target, position, velocity) {
+      const desired = subtract(target, position)
+      const normalized = divide(desired, norm(desired))
+      const maximized = multiply(normalized, this.maxSpeed)
+      const steer = subtract(maximized, velocity)
+      const limited = this.getLimitedVector(steer, this.maxForce)
+      return limited
     },
     getCohesionVector(currentBoid) {
+      const neighborDistance = 200
       const currentPosition = [currentBoid.x, currentBoid.y]
+      const { velocity } = currentBoid
       let perceivedCentre = [0, 0]
+      let count = 0
       const boids = Object.values(this.boids)
       for (const boid of boids) {
-        if (boid.name !== currentBoid.name) {
+        const distance = this.getDistance(currentBoid, boid)
+        if (distance > 0 && distance < neighborDistance) {
           const position = [boid.x, boid.y]
           perceivedCentre = add(perceivedCentre, position)
+          count++
         }
       }
 
-      perceivedCentre = divide(perceivedCentre, boids.length - 1)
-      return divide(subtract(perceivedCentre, currentPosition), 100)
+      if (count > 0) {
+        perceivedCentre = divide(perceivedCentre, count)
+        return this.seek(perceivedCentre, currentPosition, velocity)
+      }
+      return [0, 0]
     },
     getSeparationVector(currentBoid) {
-      const targetDistance = 40
-      const currentPosition = [currentBoid.x, currentBoid.y]
-      let separationVector = [0, 0]
-      const entries = Object.entries(this.boids)
-      for (const [name, boid] of entries) {
-        if (name !== currentBoid.name) {
-          const position = [boid.x, boid.y]
-          const distance = this.getDistance(currentBoid, boid)
-          if (distance > 0 && distance < targetDistance) {
-            const difference = subtract(currentPosition, position)
-            const normalized = divide(difference, norm(difference))
-            const weightedByDistance = divide(normalized, distance)
-            separationVector = add(separationVector, weightedByDistance)
-          }
+      const { velocity } = currentBoid
+      const separation = 35
+      let steer = [0, 0]
+      let count = 0
+      const boids = Object.values(this.boids)
+      for (const boid of boids) {
+        const distance = this.getDistance(currentBoid, boid)
+        if (distance > 0 && distance < separation) {
+          let diff = subtract([currentBoid.x, currentBoid.y], [boid.x, boid.y])
+          diff = divide(diff, norm(diff))
+          diff = divide(diff, distance)
+          steer = add(steer, diff)
+          count++
         }
       }
-      separationVector = divide(separationVector, entries.length - 1)
 
-      if (norm(separationVector) > 0) {
-        separationVector = divide(separationVector, norm(separationVector))
+      if (count > 0) {
+        steer = divide(steer, count)
       }
 
-      return separationVector
+      if (norm(steer) > 0) {
+        steer = divide(steer, norm(steer))
+        steer = multiply(steer, this.maxSpeed)
+        steer = subtract(steer, velocity)
+        steer = this.getLimitedVector(steer, this.maxForce)
+      }
+
+      return steer
     },
     getAlignmentVector(currentBoid) {
-      // const neighborDistance = 100
+      const neighborDistance = 200
+      let count = 0
       const currentVelocity = currentBoid.velocity
       let averageVelocity = [0, 0]
-      const entries = Object.entries(this.boids)
-      for (const [name, boid] of entries) {
-        if (name !== currentBoid.name) {
-          const { velocity } = boid
+      const boids = Object.values(this.boids)
+      for (const boid of boids) {
+        const { velocity } = boid
+        const distance = this.getDistance(currentBoid, boid)
+        if (distance > 0 && distance < neighborDistance) {
           averageVelocity = add(averageVelocity, velocity)
+          count++
         }
       }
-      averageVelocity = divide(averageVelocity, entries.length - 1)
-      return divide(subtract(averageVelocity, currentVelocity), 8)
+      if (norm(averageVelocity) > 0) {
+        averageVelocity = divide(averageVelocity, count)
+        const normalized = divide(averageVelocity, norm(averageVelocity))
+        const maximized = multiply(normalized, this.maxSpeed)
+        const steer = subtract(maximized, currentVelocity)
+        const limited = this.getLimitedVector(steer, this.maxForce)
+        return limited
+      }
+      return averageVelocity
     },
     getLimitedVelocityVector(velocity) {
-      const limit = 3
-      if (norm(velocity) > limit) {
-        return chain(velocity).divide(norm(velocity)).multiply(limit).done()
+      if (norm(velocity) > this.maxSpeed) {
+        return chain(velocity)
+          .divide(norm(velocity))
+          .multiply(this.maxSpeed)
+          .done()
       }
       return velocity
+    },
+    getLimitedVector(vector, limit) {
+      if (norm(vector) > limit) {
+        return chain(vector).divide(norm(vector)).multiply(limit).done()
+      }
+      return vector
     },
     getDistance(p1, p2) {
       return Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2)
