@@ -16,7 +16,7 @@ function seek({ target, position, velocity, maxSpeed, maxForce }) {
 }
 
 function getCohesionVector({ currentBoid, boids, maxSpeed, maxForce }) {
-  const neighborDistance = 200
+  const neighborDistance = 150
   const currentPosition = [currentBoid.x, currentBoid.y]
   const { velocity } = currentBoid
   let perceivedCentre = [0, 0]
@@ -70,7 +70,7 @@ function getSeparationVector({ currentBoid, boids, maxSpeed, maxForce }) {
 }
 
 function getAlignmentVector({ currentBoid, boids, maxSpeed, maxForce }) {
-  const neighborDistance = 200
+  const neighborDistance = 150
   let count = 0
   const currentVelocity = currentBoid.velocity
   let averageVelocity = [0, 0]
