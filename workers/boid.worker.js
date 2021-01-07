@@ -4,8 +4,10 @@ self.addEventListener('message', ({ data }) => {
   const {
     maxSpeed,
     maxForce,
+    separation,
     boidsChunk,
-    allBoids,
+    searchDistance,
+    boids,
     endX,
     endY,
     margin,
@@ -14,8 +16,10 @@ self.addEventListener('message', ({ data }) => {
   const updatedBoids = getUpdatedBoids({
     maxSpeed,
     maxForce,
+    separation,
     boidsChunk,
-    allBoids,
+    searchDistance,
+    boids,
     endX,
     endY,
     margin
