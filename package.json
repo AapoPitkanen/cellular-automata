@@ -12,8 +12,10 @@
   },
   "dependencies": {
     "@nuxt/content": "^1.9.0",
-    "@nuxtjs/axios": "^5.12.2",
+    "@nuxtjs/axios": "^5.12.5",
     "core-js": "^3.6.5",
+    "gl-matrix": "^3.3.0",
+    "kdbush": "^3.0.0",
     "konva": "^7.2.2",
     "mathjs": "^8.1.1",
     "nuxt": "^2.14.6",
