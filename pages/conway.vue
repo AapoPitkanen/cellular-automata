@@ -62,7 +62,6 @@ export default {
       return this.cellStates[this.selectedDay]
     },
     cells() {
-      console.log(this.currentCellState)
       const cellKeys = Object.keys(this.currentCellState).filter(
         (key) => this.currentCellState[key]
       )

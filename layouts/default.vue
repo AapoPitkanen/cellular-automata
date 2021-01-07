@@ -46,9 +46,6 @@ export default {
       right: true,
       rightDrawer: false
     }
-  },
-  mounted() {
-    console.log('default layout mounted')
   }
 }
 </script>
