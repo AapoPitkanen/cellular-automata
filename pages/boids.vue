@@ -20,7 +20,7 @@ import BoidWorker from '../workers/boid.worker'
 /* eslint-enable import/default */
 import { getUpdatedBoids, generateRandomPoints } from '../utils/boids'
 
-const boidsCount = 480
+const boidsCount = 1000
 let konvaAnimation = null
 
 const frame = []
@@ -32,10 +32,10 @@ const frameTimes = []
 export default {
   data() {
     return {
-      searchDistance: 100,
-      separation: 25,
-      maxSpeed: 3.5,
-      maxForce: 0.08,
+      searchDistance: 50,
+      separation: 10,
+      maxSpeed: 3.0,
+      maxForce: 0.015,
       mouse: {
         x: 0,
         y: 0
@@ -52,13 +52,14 @@ export default {
           name: `boid-${idx}`,
           acceleration: vec2.fromValues(0, 0),
           velocity: vec2.fromValues(0, 0),
-          rotation: 0,
-          targetRotation: 0,
+          rotation: Math.random() * 360,
+          targetRotation: vec2.fromValues(0, 0),
+          targetPosition: vec2.fromValues(0, 0),
           scaleY: 1.33,
           x: 0,
           y: 0,
           sides: 3,
-          radius: 5,
+          radius: 3,
           fill: '#00d29b'
         }))
       )
@@ -111,8 +112,7 @@ export default {
         }
 
         for (const boid of frame) {
-          const { x, y, rotation } = boid
-          const { name } = boid
+          const { x, y, rotation, name } = boid
           const [boidRef] = this.$refs[name]
           const node = boidRef.getNode()
           node.rotation(rotation)
