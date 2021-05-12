@@ -1,10 +1,15 @@
 <template lang="pug">
   v-row(no-gutters)
-    v-col(ref="konvaControls").konva-controls.d-flex
-      v-btn(@click="handleStartBoidsClick" color="primary").mr-4
+    v-col(ref="konvaControls").konva-controls.d-flex.py-4
+      v-btn(@click="handleStartBoidsClick").mr-4
         v-icon mdi-play
-      v-btn(@click="handleStopBoidsClick" color="primary")
+      v-btn(@click="handleStopBoidsClick")
         v-icon mdi-stop
+      v-slider(v-model="maxSpeed" min=0 max=5 step=0.01 label="Speed" thumb-label)
+      v-slider(v-model="maxForce" min=0 max=0.1 step=0.01 label="Force" thumb-label)
+      v-slider(v-model="cohesionMultiplier" min=0 max=3 step=0.01 label="Cohesion" thumb-label)
+      v-slider(v-model="alignmentMultiplier" min=0 max=3 step=0.01 label="Alignment" thumb-label)
+      v-slider(v-model="separationMultiplier" min=0 max=3 step=0.01 label="Separation" thumb-label)
     v-col(cols=12 ref="konvaContainer").konva-container
       v-stage(:config="configKonva" ref="stage")
         v-layer
@@ -18,28 +23,27 @@ import Konva from 'konva'
 import { vec2 } from 'gl-matrix'
 import BoidWorker from '../workers/boid.worker'
 /* eslint-enable import/default */
-import { getUpdatedBoids, generateRandomPoints } from '../utils/boids'
+import {
+  getUpdatedBoids,
+  generateRandomPoints,
+  radiansToDegrees
+} from '../utils/boids'
 
 const boidsCount = 1000
 let konvaAnimation = null
 
 const frame = []
-let frameStart = null
-let frameEnd = null
-
-const frameTimes = []
 
 export default {
   data() {
     return {
       searchDistance: 50,
-      separation: 10,
-      maxSpeed: 3.0,
-      maxForce: 0.015,
-      mouse: {
-        x: 0,
-        y: 0
-      },
+      separation: 15,
+      cohesionMultiplier: 1,
+      alignmentMultiplier: 1,
+      separationMultiplier: 1,
+      maxSpeed: 2.25,
+      maxForce: 0.03,
       configKonva: {
         x: 0,
         y: 0,
@@ -47,23 +51,34 @@ export default {
         height: 0
       },
       margin: 10,
-      boids: Object.freeze(
-        Array.from({ length: boidsCount }).map((_, idx) => ({
+      boids: []
+    }
+  },
+  created() {
+    this.boids = Object.freeze(
+      Array.from({ length: boidsCount }).map((_, idx) => {
+        const startVelocity = vec2.fromValues(
+          Math.random() * this.maxSpeed - this.maxSpeed / 2,
+          Math.random() * this.maxSpeed - this.maxSpeed / 2
+        )
+        const directionRadians = Math.atan2(startVelocity[1], startVelocity[0])
+        const directionDegrees = radiansToDegrees(directionRadians)
+        const rotationAmount = directionDegrees + 90
+        return {
           name: `boid-${idx}`,
           acceleration: vec2.fromValues(0, 0),
-          velocity: vec2.fromValues(0, 0),
-          rotation: Math.random() * 360,
+          velocity: startVelocity,
+          rotation: rotationAmount,
           targetRotation: vec2.fromValues(0, 0),
-          targetPosition: vec2.fromValues(0, 0),
           scaleY: 1.33,
           x: 0,
           y: 0,
           sides: 3,
-          radius: 3,
+          radius: 4,
           fill: '#00d29b'
-        }))
-      )
-    }
+        }
+      })
+    )
   },
   mounted() {
     // const workerCount = window.navigator.hardwareConcurrency - 1
@@ -77,11 +92,6 @@ export default {
       worker.onmessage = ({ data }) => {
         const { updatedBoids } = data
         frame.push(...updatedBoids)
-
-        if (frame.length === boidsCount) {
-          frameEnd = performance.now()
-          frameTimes.push(frameEnd - frameStart)
-        }
       }
     }
     this.$nextTick(() => {
@@ -138,12 +148,6 @@ export default {
     },
     handleStopBoidsClick() {
       konvaAnimation.stop()
-      const averageFrameTime =
-        frameTimes.reduce((acc, cur) => acc + cur, 0) / (frameTimes.length - 1)
-      const str = `%c Average frametime with ${this.workers.length} workers and ${boidsCount} boids: ${averageFrameTime} ms.`
-      const fps = `%c Average framerate: ${1000 / averageFrameTime} fps`
-      console.log(str, 'color: green; font-size: 16px')
-      console.log(fps, 'color: blue; font-size: 16px')
     },
     handleWindowResize: debounce(function () {
       const konvaContainer = this.$refs.konvaContainer
@@ -153,37 +157,52 @@ export default {
       }
     }, 100),
     updateBoids(boids) {
+      const {
+        maxSpeed,
+        maxForce,
+        separation,
+        searchDistance,
+        configKonva: { width, height },
+        margin,
+        cohesionMultiplier,
+        alignmentMultiplier,
+        separationMultiplier
+      } = this
       const chunkLength = Math.ceil(boids.length / (this.workers.length + 1))
       const firstChunkPayload = {
-        maxSpeed: this.maxSpeed,
-        maxForce: this.maxForce,
-        separation: this.separation,
+        maxSpeed,
+        maxForce,
+        separation,
         boidsChunk: boids.slice(0, chunkLength),
         boids,
-        searchDistance: this.searchDistance,
-        endX: this.configKonva.width,
-        endY: this.configKonva.height,
-        margin: this.margin
+        searchDistance,
+        endX: width,
+        endY: height,
+        margin,
+        cohesionMultiplier,
+        alignmentMultiplier,
+        separationMultiplier
       }
       const firstUpdatedBoids = getUpdatedBoids(firstChunkPayload)
       frame.push(...firstUpdatedBoids)
-      frameStart = performance.now()
       for (let i = 0; i < this.workers.length; ++i) {
         const boidsChunk = boids.slice(
           (i + 1) * chunkLength,
           (i + 1) * chunkLength + chunkLength
         )
         const payload = {
-          maxSpeed: this.maxSpeed,
-          maxForce: this.maxForce,
-          separation: this.separation,
+          maxSpeed,
+          maxForce,
+          separation,
           boidsChunk,
           boids,
-          searchDistance: this.searchDistance,
-          endX: this.configKonva.width,
-          endY: this.configKonva.height,
-          margin: this.margin,
-          index: i
+          searchDistance,
+          endX: width,
+          endY: height,
+          margin,
+          cohesionMultiplier,
+          alignmentMultiplier,
+          separationMultiplier
         }
         this.workers[i].postMessage(payload)
       }

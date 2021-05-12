@@ -64,7 +64,7 @@ function getSeparationVector({ boid, neighbors, maxSpeed, maxForce }) {
     vec2.subtract(steer, steer, velocity)
     if (vec2.length(steer) > maxForce) {
       vec2.normalize(steer, steer)
-      vec2.scale(steer, steer, maxForce * 2)
+      vec2.scale(steer, steer, maxForce)
     }
     return steer
   }
@@ -125,7 +125,9 @@ function getUpdatedBoids({
   endX,
   endY,
   margin,
-  updater
+  cohesionMultiplier,
+  alignmentMultiplier,
+  separationMultiplier
 }) {
   const kdTree = new KDBush(
     boids,
@@ -135,14 +137,7 @@ function getUpdatedBoids({
     Float32Array
   )
   const updatedBoids = boidsChunk.map((boid) => {
-    const {
-      x,
-      y,
-      velocity,
-      acceleration,
-      targetRotation,
-      targetPosition
-    } = boid
+    const { x, y, velocity, acceleration, targetRotation } = boid
     const currentPosition = [x, y]
     const alignCohesionIndexes = kdTree.within(x, y, searchDistance)
     const neighbors = alignCohesionIndexes
@@ -170,7 +165,9 @@ function getUpdatedBoids({
       maxSpeed,
       maxForce
     })
-    vec2.scale(separationVector, separationVector, 1.33)
+    vec2.scale(separationVector, separationVector, separationMultiplier)
+    vec2.scale(alignmentVector, alignmentVector, alignmentMultiplier)
+    vec2.scale(cohesionVector, cohesionVector, cohesionMultiplier)
     vec2.add(acceleration, acceleration, separationVector)
     vec2.add(acceleration, acceleration, alignmentVector)
     vec2.add(acceleration, acceleration, cohesionVector)
@@ -205,8 +202,7 @@ function getUpdatedBoids({
       acceleration: vec2.zero(acceleration),
       velocity,
       rotation: rotationAmount,
-      targetRotation,
-      targetPosition
+      targetRotation
     }
   })
   return updatedBoids
@@ -228,4 +224,4 @@ function generateRandomPoints(count, maxX, maxY) {
   return points.map((point) => point.split('/').map(Number))
 }
 
-export { getUpdatedBoids, generateRandomPoints }
+export { getUpdatedBoids, generateRandomPoints, radiansToDegrees }
