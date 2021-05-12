@@ -1,4 +1,3 @@
-// import { add, divide, subtract, norm, chain, multiply } from 'mathjs'
 import { vec2 } from 'gl-matrix'
 import KDBush from 'kdbush'
 

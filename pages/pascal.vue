@@ -1,14 +1,18 @@
 <template lang="pug">
-  v-row(no-gutters justify="center")
+  v-row.justify-center
     v-col(cols=12)
-      v-row
+      v-row.justify-center
         v-col(cols=12 sm=6 md=4 lg=2)
-          v-text-field(outlined hide-details v-model="numberOfRows")
-        v-spacer
+          v-text-field(
+            outlined
+            hide-details
+            dense
+            v-model="numberOfRows")
     v-col(cols="auto")
-      v-row(v-for="(row, rowIndex) in pascalRows" :key="rowIndex").justify-center
-        v-col(v-for="(column, columnIndex) in row" cols="auto" :key="`${rowIndex}-${columnIndex}`").pascal-column
-          .text-caption.grey--text {{ column }}
+      v-fade-transition(group)
+        v-row(v-for="(row, rowIndex) in pascalRows" :key="rowIndex").justify-center
+          v-col(v-for="(column, columnIndex) in row" cols="auto" :key="`${rowIndex}-${columnIndex}`").pascal-column
+            .text-caption.grey--text {{ column }}
 </template>
 
 <script>

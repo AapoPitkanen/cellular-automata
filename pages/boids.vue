@@ -1,15 +1,53 @@
 <template lang="pug">
   v-row(no-gutters)
-    v-col(ref="konvaControls").konva-controls.d-flex.py-4
+    v-col(ref="konvaControls").konva-controls.d-flex.py-4.align-center
       v-btn(@click="handleStartBoidsClick").mr-4
         v-icon mdi-play
       v-btn(@click="handleStopBoidsClick")
         v-icon mdi-stop
-      v-slider(v-model="maxSpeed" min=0 max=5 step=0.01 label="Speed" thumb-label)
-      v-slider(v-model="maxForce" min=0 max=0.1 step=0.01 label="Force" thumb-label)
-      v-slider(v-model="cohesionMultiplier" min=0 max=3 step=0.01 label="Cohesion" thumb-label)
-      v-slider(v-model="alignmentMultiplier" min=0 max=3 step=0.01 label="Alignment" thumb-label)
-      v-slider(v-model="separationMultiplier" min=0 max=3 step=0.01 label="Separation" thumb-label)
+      v-slider(
+        v-model="maxSpeed"
+        min=0
+        max=5
+        step=0.01
+        label="Speed"
+        thumb-label
+        hide-details
+      ).mx-4
+      v-slider(
+        v-model="maxForce"
+        min=0
+        max=0.1
+        step=0.01
+        label="Force"
+        thumb-label
+        hide-details
+      ).mr-2
+      v-slider(
+        v-model="cohesionMultiplier"
+        min=0
+        max=3
+        step=0.01
+        label="Cohesion"
+        thumb-label
+        hide-details).mr-2
+      v-slider(
+        v-model="alignmentMultiplier"
+        min=0
+        max=3
+        step=0.01
+        label="Alignment"
+        thumb-label
+        hide-details).mr-2
+      v-slider(
+        v-model="separationMultiplier"
+        min=0
+        max=3
+        step=0.01
+        label="Separation"
+        thumb-label
+        hide-details
+      )
     v-col(cols=12 ref="konvaContainer").konva-container
       v-stage(:config="configKonva" ref="stage")
         v-layer
@@ -29,21 +67,18 @@ import {
   radiansToDegrees
 } from '../utils/boids'
 
-const boidsCount = 1000
-let konvaAnimation = null
-
 const frame = []
 
 export default {
   data() {
     return {
-      searchDistance: 50,
-      separation: 15,
-      cohesionMultiplier: 1,
-      alignmentMultiplier: 1,
-      separationMultiplier: 1,
+      searchDistance: 75,
+      separation: 25,
+      cohesionMultiplier: 0.75,
+      alignmentMultiplier: 1.5,
+      separationMultiplier: 2,
       maxSpeed: 2.25,
-      maxForce: 0.03,
+      maxForce: 0.04,
       configKonva: {
         x: 0,
         y: 0,
@@ -51,12 +86,14 @@ export default {
         height: 0
       },
       margin: 10,
-      boids: []
+      boids: [],
+      boidsCount: 640
     }
   },
   created() {
+    this.konvaAnimation = null
     this.boids = Object.freeze(
-      Array.from({ length: boidsCount }).map((_, idx) => {
+      Array.from({ length: this.boidsCount }).map((_, idx) => {
         const startVelocity = vec2.fromValues(
           Math.random() * this.maxSpeed - this.maxSpeed / 2,
           Math.random() * this.maxSpeed - this.maxSpeed / 2
@@ -74,7 +111,7 @@ export default {
           x: 0,
           y: 0,
           sides: 3,
-          radius: 4,
+          radius: 6,
           fill: '#00d29b'
         }
       })
@@ -82,7 +119,7 @@ export default {
   },
   mounted() {
     // const workerCount = window.navigator.hardwareConcurrency - 1
-    const workerCount = 2
+    const workerCount = 3
 
     const workers = Array.from({ length: workerCount }).map(
       () => new BoidWorker()
@@ -101,7 +138,11 @@ export default {
       const canvasHeight = windowHeight - controlsHeight - 96
       this.configKonva.width = canvasWidth
       this.configKonva.height = canvasHeight
-      const points = generateRandomPoints(boidsCount, canvasWidth, canvasHeight)
+      const points = generateRandomPoints(
+        this.boidsCount,
+        canvasWidth,
+        canvasHeight
+      )
       const [boidRef] = this.$refs['boid-0']
       const boidNode = boidRef.getNode()
 
@@ -117,7 +158,7 @@ export default {
 
       const animation = new Konva.Animation(({ frameRate }) => {
         const updatedBoidsCount = frame.length
-        if (updatedBoidsCount < boidsCount) {
+        if (updatedBoidsCount < this.boidsCount) {
           return false
         }
 
@@ -133,7 +174,7 @@ export default {
         requestAnimationFrame(() => this.updateBoids(frameCopy))
         frame.length = 0
       }, boidNode.getLayer())
-      konvaAnimation = animation
+      this.konvaAnimation = animation
     })
 
     window.addEventListener('resize', this.handleWindowResize)
@@ -143,11 +184,13 @@ export default {
   },
   methods: {
     handleStartBoidsClick() {
-      requestAnimationFrame(() => this.updateBoids(this.boids))
-      konvaAnimation.start()
+      if (!frame.length) {
+        requestAnimationFrame(() => this.updateBoids(this.boids))
+      }
+      this.konvaAnimation.start()
     },
     handleStopBoidsClick() {
-      konvaAnimation.stop()
+      this.konvaAnimation.stop()
     },
     handleWindowResize: debounce(function () {
       const konvaContainer = this.$refs.konvaContainer

@@ -20,6 +20,10 @@
           .text-button Day {{ currentDay }}
         v-col(cols="auto")
           .text-button Population {{ currentPopulation }}
+        v-col(cols="auto")
+          .text-button Births {{ currentBirths }}
+        v-col(cols="auto")
+          .text-button Deaths {{ currentDeaths }}
       v-row(no-gutters)
         v-col(cols=12 ref="konvaContainer").konva-container
           v-stage(:config="configKonva" @dragend="handleStageDragEnd" @click="handleStageClick")
@@ -30,16 +34,14 @@
 </template>
 
 <script>
-import { debounce } from 'lodash'
+import { debounce, difference } from 'lodash'
 
 export default {
   data() {
     return {
       lifeInterval: null,
       currentDay: 0,
-      rows: 24,
-      columns: 24,
-      cellStates: [new Set()],
+      cellStates: [{ births: 0, deaths: 0, cells: new Set() }],
       rectWidth: 16,
       rectHeight: 16,
       margin: 2560,
@@ -58,11 +60,21 @@ export default {
     currentCellState() {
       return this.cellStates[this.currentDay]
     },
+    currentCells() {
+      return this.currentCellState.cells
+    },
     currentPopulation() {
-      return this.currentCellState.size
+      console.log(this.currentCells)
+      return this.currentCells.size
+    },
+    currentBirths() {
+      return this.currentCellState.births
+    },
+    currentDeaths() {
+      return this.currentCellState.deaths
     },
     cells() {
-      const cellKeys = [...this.currentCellState.values()]
+      const cellKeys = [...this.currentCells]
       return cellKeys.map((cellKey) => {
         const [x, y] = cellKey
           .split('/')
@@ -164,36 +176,42 @@ export default {
       const cellX = Math.floor(relativeX / this.rectWidth)
       const cellY = Math.floor(relativeY / this.rectHeight)
       const cellKey = `${cellX}/${cellY}`
-      const updatedCurrentCellState = new Set(this.currentCellState)
-      if (this.currentCellState.has(cellKey)) {
-        updatedCurrentCellState.delete(cellKey)
+      const updatedCurrentCells = new Set(this.currentCells)
+      if (this.currentCells.has(cellKey)) {
+        updatedCurrentCells.delete(cellKey)
       } else {
-        updatedCurrentCellState.add(cellKey)
+        updatedCurrentCells.add(cellKey)
       }
-      this.$set(this.cellStates, this.currentDay, updatedCurrentCellState)
+      const updatedCellState = {
+        ...this.currentCellState,
+        cells: updatedCurrentCells
+      }
+      this.$set(this.cellStates, this.currentDay, updatedCellState)
     },
     handleStepBackwardClick() {
       this.currentDay -= 1
     },
     handleStepForwardClick() {
-      this.updateCells()
+      if (this.currentDay === this.cellStates.length - 1) {
+        this.updateCells()
+      }
       this.currentDay += 1
     },
     handleResetClick() {
       this.currentDay = 0
-      this.cellStates = [new Set()]
+      this.cellStates = [{ births: 0, deaths: 0, cells: new Set() }]
     },
     updateCells() {
-      const newCellState = new Set()
+      const updatedCells = new Set()
       let deadCells = new Set()
-      for (const cellKey of this.currentCellState) {
+      for (const cellKey of this.currentCells) {
         const surroundingCellKeys = this.getSurroundingCellKeys(cellKey)
         deadCells = new Set([...deadCells, ...surroundingCellKeys])
         const aliveNeighborCount = this.getAliveNeighborCount(
           surroundingCellKeys
         )
         if (aliveNeighborCount >= 2 && aliveNeighborCount <= 3) {
-          newCellState.add(cellKey)
+          updatedCells.add(cellKey)
         }
       }
 
@@ -202,11 +220,20 @@ export default {
         const aliveNeighborCount = this.getAliveNeighborCount(
           surroundingCellKeys
         )
-        if (aliveNeighborCount === 3 && !newCellState.has(cellKey)) {
-          newCellState.add(cellKey)
+        if (aliveNeighborCount === 3 && !updatedCells.has(cellKey)) {
+          updatedCells.add(cellKey)
         }
       }
-      this.cellStates.push(newCellState)
+      const births = difference([...updatedCells], [...this.currentCells])
+        .length
+      const deaths = difference([...this.currentCells], [...updatedCells])
+        .length
+      const updatedCellState = {
+        births,
+        deaths,
+        cells: updatedCells
+      }
+      this.cellStates.push(updatedCellState)
     },
     getSurroundingCellKeys(cellKey) {
       const [cellX, cellY] = cellKey.split('/').map(Number)
@@ -227,7 +254,7 @@ export default {
     getAliveNeighborCount(cellKeys) {
       const cellKeyList = [...cellKeys]
       const aliveCells = cellKeyList.filter((cellKey) =>
-        this.currentCellState.has(cellKey)
+        this.currentCells.has(cellKey)
       )
       return aliveCells.length
     },

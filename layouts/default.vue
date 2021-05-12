@@ -20,7 +20,8 @@
     v-app-bar(:clipped-left="clipped" fixed app)
     v-main.grey.darken-4
       v-container(fluid).px-4
-        nuxt
+        v-fade-transition
+          nuxt
 </template>
 
 <script>
@@ -32,14 +33,24 @@ export default {
       fixed: true,
       items: [
         {
-          icon: 'mdi-apps',
-          title: 'Welcome',
+          icon: 'mdi-view-dashboard',
+          title: 'Dashboard',
           to: '/'
         },
         {
-          icon: 'mdi-chart-bubble',
-          title: 'Inspire',
-          to: '/inspire'
+          icon: 'mdi-triangle-outline',
+          title: 'Boids',
+          to: '/boids'
+        },
+        {
+          icon: 'mdi-apps',
+          title: "Conway's Game of Life",
+          to: '/conway'
+        },
+        {
+          icon: 'mdi-dots-triangle',
+          title: "Pascal's triangle",
+          to: '/pascal'
         }
       ],
       miniVariant: true,
