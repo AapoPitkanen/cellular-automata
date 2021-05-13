@@ -16,6 +16,8 @@
         v-col(cols="auto")
           v-btn(@click="handleResetClick" :disabled="!!lifeInterval")
             v-icon mdi-restore
+        v-col.speed-slider
+          v-slider(:disabled="!!lifeInterval" max=60 min=1 v-model="speed" label="Speed" :thumb-label="true")
         v-col(cols="auto")
           .text-button Day {{ currentDay }}
         v-col(cols="auto")
@@ -31,6 +33,9 @@
               v-rect(v-for="(cell, index) in cells" :config="cell" :key="`cell-${index}`")
             v-layer
               v-line(v-for="(line, index) in lines" :config="line" :key="`line-${index}`")
+      v-row
+        v-col(cols=12).chart-container
+          v-chart(:option="option" theme="dark" autoresize)
 </template>
 
 <script>
@@ -53,7 +58,8 @@ export default {
         draggable: true
       },
       cellColor: 'rgba(0, 143, 17, 0.5)',
-      gridColor: '#999'
+      gridColor: '#999',
+      speed: 1
     }
   },
   computed: {
@@ -64,7 +70,6 @@ export default {
       return this.currentCellState.cells
     },
     currentPopulation() {
-      console.log(this.currentCells)
       return this.currentCells.size
     },
     currentBirths() {
@@ -136,6 +141,52 @@ export default {
         })
       }
       return lines
+    },
+    populationSeries() {
+      return this.cellStates.map(({ cells }) => cells.size)
+    },
+    birthSeries() {
+      return this.cellStates.map(({ births }) => births)
+    },
+    deathSeries() {
+      return this.cellStates.map(({ deaths }) => deaths)
+    },
+    option() {
+      return {
+        backgroundColor: this.$vuetify.theme.currentTheme.background,
+        legend: {
+          show: true
+        },
+        xAxis: {
+          type: 'category',
+          data: Array.from({ length: this.cellStates.length }).map(
+            (_, idx) => `Day ${idx}`
+          )
+        },
+        yAxis: {
+          type: 'value'
+        },
+        series: [
+          {
+            name: 'Population',
+            data: this.populationSeries,
+            type: 'line',
+            smooth: true
+          },
+          {
+            name: 'Births',
+            data: this.birthSeries,
+            type: 'line',
+            smooth: true
+          },
+          {
+            name: 'Deaths',
+            data: this.deathSeries,
+            type: 'line',
+            smooth: true
+          }
+        ]
+      }
     }
   },
   mounted() {
@@ -166,7 +217,7 @@ export default {
       this.lifeInterval = setInterval(() => {
         this.updateCells()
         this.currentDay += 1
-      }, 1000 / 15)
+      }, 1000 / this.speed)
     },
     handleStageClick({ currentTarget }) {
       const { x, y } = currentTarget.getPointerPosition()
@@ -192,9 +243,8 @@ export default {
       this.currentDay -= 1
     },
     handleStepForwardClick() {
-      if (this.currentDay === this.cellStates.length - 1) {
-        this.updateCells()
-      }
+      this.cellStates = this.cellStates.slice(0, this.currentDay + 1)
+      this.updateCells()
       this.currentDay += 1
     },
     handleResetClick() {
@@ -281,4 +331,8 @@ export default {
 <style lang="sass" scoped>
 .absolute
   position: absolute
+.chart-container
+  min-height: 20rem
+.speed-slider
+  max-width: 20rem
 </style>
