@@ -5,6 +5,7 @@
         v-col(cols=12 sm=6 md=4 lg=2)
           v-text-field(
             outlined
+            label="Rows"
             hide-details
             dense
             v-model="numberOfRows")
