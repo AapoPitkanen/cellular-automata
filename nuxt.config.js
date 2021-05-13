@@ -21,7 +21,7 @@ export default {
   css: [],
 
   // Plugins to run before rendering page (https://go.nuxtjs.dev/config-plugins)
-  plugins: ['@/plugins/vue-konva.js'],
+  plugins: ['@/plugins/vue-konva.js', '@/plugins/vue-echarts.js'],
 
   // Auto import components (https://go.nuxtjs.dev/config-components)
   components: true,
@@ -61,7 +61,8 @@ export default {
           info: colors.teal.lighten1,
           warning: colors.amber.base,
           error: colors.deepOrange.accent4,
-          success: colors.green.accent3
+          success: colors.green.accent3,
+          background: '#212121'
         }
       }
     }
