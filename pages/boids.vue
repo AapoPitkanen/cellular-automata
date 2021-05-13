@@ -180,6 +180,7 @@ export default {
     window.addEventListener('resize', this.handleWindowResize)
   },
   beforeDestroy() {
+    frame.length = 0
     window.removeEventListener('resize', this.handleWindowResize)
   },
   methods: {
