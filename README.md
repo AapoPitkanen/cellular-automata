@@ -11,5 +11,5 @@ http://www.marekfiser.com/Projects/Conways-Game-of-Life-on-GPU-using-CUDA
 
 The Boids model utilizes k-d trees for efficient nearest neighbor calculations, allowing larger flock sizes
 with acceptable frame rates. Quadtrees would also be an option, but k-d trees seemed to perform a bit better.
-Web workers are also used to squeeze out some extra performance. Web workers have diminishing returns though,
+Web workers are also used to squeeze out some extra performance. Web workers have diminishing returns though
 as the message latency starts to get bigger, so more than 3 workers actually degraded performance.
