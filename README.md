@@ -3,6 +3,14 @@
 Simple Vue implementation of Conway's Game of Life and Craig Reynolds' Boids flocking simulation.
 Efficient way to calculate the nth row of Pascal's triangle added as a bonus.
 
+To get up and running, install dependencies with
+
+```npm install```
+
+And then start the dev server
+
+```npm run dev```
+
 Game of Life is modeled with the naive and inefficient solution of just keeping a set of alive cell
 coordinates and running the neighbor calculations for each one. If you're interested in creating
 an efficient version of modeling the Game of Life, here are some nice resources for that:
