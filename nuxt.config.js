@@ -7,8 +7,8 @@ export default {
   target: 'static',
   // Global page headers (https://go.nuxtjs.dev/config-head)
   head: {
-    titleTemplate: '%s - example-nuxt-app',
-    title: 'Awesome Nuxt',
+    titleTemplate: '%s - Artificial Life Simulations',
+    title: 'Cellular Automata',
     meta: [
       { charset: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
